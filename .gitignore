@@ -1,4 +1,7 @@
 ssdv
+test
 *.o
+*.lo
+*.so
 *.jpeg
 *.bin*

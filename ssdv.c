@@ -675,6 +675,7 @@ static char ssdv_have_marker(ssdv_t *s)
 		/* Copy the data before processing */
 		if(s->marker_len > TBL_LEN + HBUFF_LEN - s->stbl_len)
 		{
+            printf("SSDV out of memory - marker len = %hu\n", s->marker_len);
 			/* Not enough memory ... shouldn't happen! */
 			return(SSDV_ERROR);
 		}
@@ -979,6 +980,8 @@ char ssdv_enc_get_packet(ssdv_t *s)
 	/* If the output buffer is empty, re-initialise */
 	if(s->out_len == 0) ssdv_enc_set_buffer(s, s->out);
 	
+    printf("Get packet:\n");
+    printf("stbl_len: %hu\n", s->stbl_len);
 	while(s->in_len)
 	{
 		b = *(s->inp++);
@@ -987,9 +990,11 @@ char ssdv_enc_get_packet(ssdv_t *s)
 		/* Skip bytes if necessary */
 		if(s->in_skip) { s->in_skip--; continue; }
 		
+        printf("Marker 0x%hx, length %hu: ", s->marker, s->marker_len);
 		switch(s->state)
 		{
 		case S_MARKER:
+            printf("S_MARKER\n");
 			s->marker = (s->marker << 8) | b;
 			
 			if(s->marker == J_TEM ||
@@ -1010,6 +1015,7 @@ char ssdv_enc_get_packet(ssdv_t *s)
 			break;
 		
 		case S_MARKER_LEN:
+            printf("S_MARKER_LEN\n");
 			s->marker_len = (s->marker_len << 8) | b;
 			if((s->needbits -= 8) == 0)
 			{
@@ -1020,6 +1026,7 @@ char ssdv_enc_get_packet(ssdv_t *s)
 			break;
 		
 		case S_MARKER_DATA:
+            printf("S_MARKER_DATA\n");
 			s->marker_data[s->marker_data_len++] = b;
 			if(s->marker_data_len == s->marker_len)
 			{
@@ -1029,7 +1036,9 @@ char ssdv_enc_get_packet(ssdv_t *s)
 			break;
 		
 		case S_HUFF:
+            printf("S_HUFF\n");
 		case S_INT:
+            printf("S_INT\n");
 			/* Is the next byte a stuffing byte? Skip it */
 			/* TODO: Test the next byte is actually 0x00 */
 			if(b == 0xFF) s->in_skip++;
@@ -1116,6 +1125,7 @@ char ssdv_enc_get_packet(ssdv_t *s)
 			break;
 		
 		case S_EOI:
+            printf("S_EOI\n");
 			/* Shouldn't reach this point */
 			break;
 		}
