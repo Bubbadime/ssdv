@@ -22,8 +22,12 @@ test: test.c libssdv.so
 
 install: all
 	mkdir -p ${DESTDIR}/usr/bin
+	mkdir -p ${DESTDIR}/usr/include/ssdv
 	install -m 755 ssdv ${DESTDIR}/usr/bin
 	install -m 755 libssdv.so ${DESTDIR}/usr/lib
+	install -m 644 ssdv.h ${DESTDIR}/usr/include/ssdv
+	install -m 644 ssdvutils.h ${DESTDIR}/usr/include/ssdv
+	install -m 644 rs8.h ${DESTDIR}/usr/include/ssdv
 
 clean:
 	rm -f *.o *.lo ssdv libssdv.so test
