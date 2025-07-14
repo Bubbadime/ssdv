@@ -27,6 +27,10 @@ int main(int argc, char* argv[]) {
 
     ssdv_mem_arena_t data = {0};
 
+    while(1) {
+        ssdv_dec_init(&ssdv, pkt_length);
+
+    }
 	switch(encode)
 	{
 	case 0: /* Decode */
@@ -49,8 +53,21 @@ int main(int argc, char* argv[]) {
 			return(-1);
 		}
         ssdv_mem_arena_t encoded;
+        ssdv_mem_arena_t data2 = {0};
         data = ssdv_read_file(fin);
+        data2.buf = malloc(data.length);
+        data2.length = data.length;
+        ssdv_memcpy_packet(&data, &data2, 0, data.used);
         encoded = ssdv_enc_buf(&data, &ssdv);
+
+        for (size_t i = 0; i < data.used; i++) {
+            printf("%hhu, %hhu\n", data.buf[i], data2.buf[i]);
+            if (data.buf[i] != data2.buf[i]) {
+                printf("NOT EQUAL!\n");
+                break;
+            }
+        }
+        printf("Pointers :%p, %p\n", data.buf, data2.buf);
         fwrite(encoded.buf, encoded.used, 1, fout);
         //ssdv_enc_file(fin, fout, &ssdv);		
         break;

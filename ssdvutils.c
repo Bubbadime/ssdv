@@ -213,7 +213,7 @@ ssdv_mem_arena_t ssdv_enc_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
             page_count *= 2;
             tmp.buf = realloc(tmp.buf, page_count * page_size);
             tmp.length = page_count * page_size;
-            printf("Had to realloc: %u pages used\n", page_count);
+            fprintf(stderr, "Had to realloc: %u pages used\n", page_count);
         }
 
         //fwrite(pkt, 1, pkt_length, fout);
