@@ -1,3 +1,25 @@
+
+/* SSDV - Slow Scan Digital Video                                        */
+/*=======================================================================*/
+/* Copyright 2011-2016 Philip Heron <phil@sanslogic.co.uk>               */
+/*                                                                       */
+/* This program is free software: you can redistribute it and/or modify  */
+/* it under the terms of the GNU General Public License as published by  */
+/* the Free Software Foundation, either version 3 of the License, or     */
+/* (at your option) any later version.                                   */
+/*                                                                       */
+/* This program is distributed in the hope that it will be useful,       */
+/* but WITHOUT ANY WARRANTY; without even the implied warranty of        */
+/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         */
+/* GNU General Public License for more details.                          */
+/*                                                                       */
+/* You should have received a copy of the GNU General Public License     */
+/* along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+
+/* ssdvutils.h added by GLRobotics 2025 */
+
+// TODO(BP): REMOVE THIS FILE!!!
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,12 +56,10 @@ int main(int argc, char* argv[]) {
     char wb[] = "wb";
     char encode = argc > 1;
 
-    fprintf(fout, "Pre-open Fin: %p, Fout: %p\n", fin, fout);
-    jpegFile = fopen("rpicam.jpg", encode? rb : wb); 
-    ssdvFile = fopen("rpicam.ssdv", encode? wb : rb);	
+    jpegFile = fopen("test.jpg", encode? rb : wb); 
+    ssdvFile = fopen("test.ssdv", encode? wb : rb);	
     fin = encode? jpegFile : ssdvFile;
     fout = (!encode)? jpegFile : ssdvFile;
-    printf("Fin: %p, Fout: %p\n", fin, fout);
 
     uint8_t *data = 0;
     size_t dataLen;

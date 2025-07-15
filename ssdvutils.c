@@ -16,9 +16,7 @@
 /* You should have received a copy of the GNU General Public License     */
 /* along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-/*
- * ssdvutils.h added by GLRobotics 2025
- */
+/* ssdvutils.h added by GLRobotics 2025 */
 
 #include <stdio.h>
 #include <stdint.h>
@@ -27,7 +25,7 @@
 #include "ssdv.h"
 #include "ssdvutils.h"
 
-// Memory struct for internal use
+/* Memory struct for internal use */
 typedef struct ssdv_mem_arena_t ssdv_mem_arena_t;
 struct ssdv_mem_arena_t {
     uint8_t *buf;
@@ -35,7 +33,7 @@ struct ssdv_mem_arena_t {
     size_t used;
 };
 
-// Mimics the behavior of fread for code consistency between file and buffer API
+/* Mimics the behavior of fread for code consistency between file and buffer API */
 static size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, size_t read_offset, size_t pkt_length) {
     size_t src_avail = src->length - read_offset;
     size_t dest_avail = dest->length - dest->used;
@@ -46,21 +44,20 @@ static size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, 
     return copy_length;
 }
 
-// Init the ssdv struct for encoding with default parameters
+/* Init the ssdv struct for encoding with default parameters */
 char ssdv_enc_init_default(ssdv_t *ssdv) {
     char result = ssdv_enc_init(ssdv, SSDV_TYPE_NORMAL, "", 0, 4, 256);
     return result;
 }
 
-// Init the ssdv struct for decoding with default parameters
+/* Init the ssdv struct for decoding with default parameters */
 char ssdv_dec_init_default(ssdv_t *ssdv) {
     char result = ssdv_dec_init(ssdv, 256);
     return result;
 }
 
-// Print the header decoded from pkt into fd
+/* Print the header decoded from pkt into fd */
 void ssdv_print_header(uint8_t *pkt, FILE* fd) {
-
     ssdv_packet_info_t p;
     ssdv_dec_header(&p, pkt);
     fprintf(fd, "decoded image packet. callsign: \"%s\", image id: %d, resolution: %dx%d, packet id: %d \n"
@@ -80,13 +77,13 @@ void ssdv_print_header(uint8_t *pkt, FILE* fd) {
            );
 }
 
-// Print the header decoded from pkt to stdout
+/* Print the header decoded from pkt to stdout */
 void ssdv_print_header_stdout(uint8_t *pkt) {
     ssdv_print_header(pkt, stdout);
     return;
 }
 
-// Print the header decoded from pkt to stderr
+/* Print the header decoded from pkt to stderr */
 void ssdv_print_header_stderr(uint8_t *pkt) {
     ssdv_print_header(pkt, stderr);
     return;
@@ -97,13 +94,11 @@ void ssdv_print_header_stderr(uint8_t *pkt) {
  * and puts the length of the buffer in len_out
  */
 uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbose, int droptest, size_t *len_out) {
-
     ssdv_mem_arena_t result = {0};
     ssdv_mem_arena_t src_arena = {0};
     src_arena.buf = src;
     src_arena.length = len_in;
     src_arena.used = len_in;
-
     int src_good = src != 0 && len_in > 0;
 
     int i, c;
@@ -129,7 +124,6 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
     result.length = jpeg_length;
 
     i = 0;
-
     size_t read_offset = 0;
     size_t bytes_read = 0;
     while((bytes_read = ssdv_memcpy_packet(&src_arena, &pkt_arena, read_offset, pkt_length)) > 0)
@@ -173,6 +167,7 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
         i++;
     }
 
+    /* Get the buffer of jpeg data and return */
     ssdv_dec_get_jpeg(ssdv, &jpeg, &jpeg_length);
     result.buf = jpeg;
     result.used = jpeg_length;
@@ -181,7 +176,7 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
     return result.buf;
 }
 
-// calls ssdv_dec_buf_opts with default parameters
+/* calls ssdv_dec_buf_opts with default parameters */
 uint8_t* ssdv_dec_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out) {
     uint8_t* result;
 	int droptest = 0;
@@ -232,7 +227,7 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
         while((c = ssdv_enc_get_packet(ssdv)) == SSDV_FEED_ME)
         {
             b_arena.used = 0;
-            //size_t r = fread(b, 1, 128, fin);
+            /*size_t r = fread(b, 1, 128, fin); */
             size_t r = ssdv_memcpy_packet(&src_arena, &b_arena, read_offset, 128);;
             read_offset += r;
 
@@ -255,7 +250,7 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
             fprintf(stderr, "Total read: %u\n", read_offset);
             return 0;
         }
-        // Extend the buffer if we run out of room
+        /* Extend the buffer if we run out of room */
         if (tmp.length - tmp.used < pkt_length) {
             alloc_count *= 2;
             tmp.buf = realloc(tmp.buf, alloc_count * alloc_size);
@@ -341,7 +336,7 @@ int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int droptest, int ve
     return 0;
 }
 
-// calls ssdv_dec_file_opts with default parameters
+/* calls ssdv_dec_file_opts with default parameters */
 int ssdv_dec_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
     int droptest = 0;
     int verbose = 0;
