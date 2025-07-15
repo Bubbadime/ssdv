@@ -1,7 +1,21 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "ssdv.h"
 #include "ssdvutils.h"
+
+uint8_t* ssdv_read_file(FILE* f, size_t *len_out) {
+    uint8_t* result = 0;
+    size_t fcur = ftell(f);
+    fseek(f, 0, SEEK_END);
+    size_t fsize = ftell(f);
+    result = malloc(fsize);
+    *len_out = fsize;
+    fseek(f, 0, SEEK_SET);
+    fread(result, *len_out, 1, f);
+    fseek(f, fcur, SEEK_SET);
+    return result;
+}
 
 int main(int argc, char* argv[]) {
 	FILE *fin = stdin;
@@ -45,15 +59,15 @@ int main(int argc, char* argv[]) {
         size_t decodedLen;
         printf("Read file next\n");
         data = ssdv_read_file(fin, &dataLen);
-        decoded = ssdv_dec_buf(data, dataLen, &ssdv, &decodedLen);
+        decoded = ssdv_dec_buf(&ssdv, data, dataLen, &decodedLen);
         fwrite(decoded, decodedLen, 1, fout);
 #else
-        ssdv_dec_file(fin, fout, &ssdv);
+        ssdv_dec_file(&ssdv, fin, fout);
 #endif
 		break;
 	case 1: /* Encode */
 		
-		if(ssdv_enc_init(&ssdv, type, callsign, image_id, quality, pkt_length) != SSDV_OK)
+		if(ssdv_enc_init_default(&ssdv) != SSDV_OK)
 		{
 			return(-1);
 		}
@@ -61,10 +75,10 @@ int main(int argc, char* argv[]) {
         uint8_t *encoded;
         size_t encodedLen;
         data = ssdv_read_file(fin, &dataLen);
-        encoded = ssdv_enc_buf(data, dataLen, &ssdv, &encodedLen);
+        encoded = ssdv_enc_buf(&ssdv, data, dataLen, &encodedLen);
         fwrite(encoded, encodedLen, 1, fout);
 #else
-        ssdv_enc_file(fin, fout, &ssdv);		
+        ssdv_enc_file(&ssdv, fin, fout);		
 #endif
         break;
     }

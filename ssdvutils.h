@@ -22,23 +22,22 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include "ssdv.h"
 
-char ssdv_enc_init_default(ssdv_t *ssdv);
-char ssdv_dec_init_default(ssdv_t *ssdv);
-
-void ssdv_print_header(uint8_t *pkt, int fd);
+// Printing
+void ssdv_print_header(uint8_t *pkt, FILE* fd);
 void ssdv_print_header_stdout(uint8_t *pkt);
 void ssdv_print_header_stderr(uint8_t *pkt);
 
-uint8_t* ssdv_read_file(FILE* f, size_t* lenOut);
+// Decoding
+char ssdv_dec_init_default(ssdv_t *ssdv);
+uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbose, int droptest, size_t *len_out);
+uint8_t* ssdv_dec_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out);
+int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int droptest, int verbose);
+int ssdv_dec_file(ssdv_t *ssdv, FILE *fin, FILE *fout);
 
-uint8_t* ssdv_dec_buf(uint8_t *src, size_t lenIn, ssdv_t *ssdv, size_t *lenOut);
-uint8_t* ssdv_enc_buf(uint8_t *src, size_t lenIn, ssdv_t *ssdv, size_t *lenOut);
-
-int ssdv_dec_file(FILE *fin, FILE *fout, ssdv_t *ssdv);
-int ssdv_enc_file(FILE *fin, FILE *fout, ssdv_t *ssdv);
+// Encoding
+char ssdv_enc_init_default(ssdv_t *ssdv);
+uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out);
+int ssdv_enc_file(ssdv_t *ssdv, FILE *fin, FILE *fout);
 

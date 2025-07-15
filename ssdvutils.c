@@ -23,11 +23,11 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include "ssdv.h"
 #include "ssdvutils.h"
 
+// Memory struct for internal use
 typedef struct ssdv_mem_arena_t ssdv_mem_arena_t;
 struct ssdv_mem_arena_t {
     uint8_t *buf;
@@ -35,6 +35,7 @@ struct ssdv_mem_arena_t {
     size_t used;
 };
 
+// Mimics the behavior of fread for code consistency between file and buffer API
 static size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, size_t read_offset, size_t pkt_length) {
     size_t src_avail = src->length - read_offset;
     size_t dest_avail = dest->length - dest->used;
@@ -45,16 +46,20 @@ static size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, 
     return copy_length;
 }
 
+// Init the ssdv struct for encoding with default parameters
 char ssdv_enc_init_default(ssdv_t *ssdv) {
     char result = ssdv_enc_init(ssdv, SSDV_TYPE_NORMAL, "", 0, 4, 256);
     return result;
 }
+
+// Init the ssdv struct for decoding with default parameters
 char ssdv_dec_init_default(ssdv_t *ssdv) {
     char result = ssdv_dec_init(ssdv, 256);
     return result;
 }
 
-void ssdv_print_header(uint8_t *pkt, int fd) {
+// Print the header decoded from pkt into fd
+void ssdv_print_header(uint8_t *pkt, FILE* fd) {
 
     ssdv_packet_info_t p;
     ssdv_dec_header(&p, pkt);
@@ -74,32 +79,24 @@ void ssdv_print_header(uint8_t *pkt, int fd) {
             p.mcu_count
            );
 }
+
+// Print the header decoded from pkt to stdout
 void ssdv_print_header_stdout(uint8_t *pkt) {
     ssdv_print_header(pkt, stdout);
     return;
 }
 
+// Print the header decoded from pkt to stderr
 void ssdv_print_header_stderr(uint8_t *pkt) {
     ssdv_print_header(pkt, stderr);
     return;
 }
 
-uint8_t* ssdv_read_file(FILE* f, size_t *len_out) {
-    printf("Read file\n");
-    uint8_t* result = 0;
-    size_t fcur = ftell(f);
-    fseek(f, 0, SEEK_END);
-    size_t fsize = ftell(f);
-    result = malloc(fsize);
-    printf("Read file malloc'd\n");
-    *len_out = fsize;
-    fseek(f, 0, SEEK_SET);
-    fread(result, *len_out, 1, f);
-    fseek(f, fcur, SEEK_SET);
-    return result;
-}
-
-uint8_t* ssdv_dec_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out) {
+/* Decode a buffer of ssdv packets
+ * Fills a buffer with the resulting jpeg binary data,
+ * and puts the length of the buffer in len_out
+ */
+uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbose, int droptest, size_t *len_out) {
 
     ssdv_mem_arena_t result = {0};
     ssdv_mem_arena_t src_arena = {0};
@@ -110,8 +107,6 @@ uint8_t* ssdv_dec_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out
     int src_good = src != 0 && len_in > 0;
 
     int i, c;
-	int droptest = 0;
-	int verbose = 1;
 	int errors;
 	int pkt_length = SSDV_PKT_SIZE;
 	int skipped;
@@ -186,7 +181,20 @@ uint8_t* ssdv_dec_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out
     return result.buf;
 }
 
-uint8_t* ssdv_enc_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out) {
+// calls ssdv_dec_buf_opts with default parameters
+uint8_t* ssdv_dec_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out) {
+    uint8_t* result;
+	int droptest = 0;
+	int verbose = 0;
+    result = ssdv_dec_buf_opts(ssdv, src, len_in, verbose, droptest, len_out);
+    return result;
+}
+
+/* Encode a buffer of jpeg data
+ * Fills a buffer with the resulting ssdv packets,
+ * and puts the length of the buffer in len_out
+ */
+uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out) {
 
     ssdv_mem_arena_t result = {0};
     ssdv_mem_arena_t pkt_arena = {0};
@@ -199,11 +207,11 @@ uint8_t* ssdv_enc_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out
 
     ssdv_mem_arena_t tmp = {0};
 
-    size_t page_count = 1;
-    size_t page_size = getpagesize();
+    size_t alloc_count = 1;
+    size_t alloc_size = 4096;
 
-    tmp.buf = malloc(page_size);
-    tmp.length = page_size;
+    tmp.buf = malloc(alloc_size);
+    tmp.length = alloc_size;
 
     int i, c;
 	int pkt_length = SSDV_PKT_SIZE;
@@ -249,10 +257,10 @@ uint8_t* ssdv_enc_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out
         }
         // Extend the buffer if we run out of room
         if (tmp.length - tmp.used < pkt_length) {
-            page_count *= 2;
-            tmp.buf = realloc(tmp.buf, page_count * page_size);
-            tmp.length = page_count * page_size;
-            fprintf(stderr, "Had to realloc: %u pages used\n", page_count);
+            alloc_count *= 2;
+            tmp.buf = realloc(tmp.buf, alloc_count * alloc_size);
+            tmp.length = alloc_count * alloc_size;
+            fprintf(stderr, "Had to realloc: %zu bytes used\n", alloc_count * alloc_size);
         }
 
         ssdv_memcpy_packet(&pkt_arena, &tmp, 0, pkt_length);
@@ -269,11 +277,12 @@ uint8_t* ssdv_enc_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out
     return result.buf;
 }
 
-int ssdv_dec_file(FILE *fin, FILE *fout, ssdv_t *ssdv) {
+/* Decode a file of ssdv packets
+ * Reads data from fin, and write to fout
+ */
+int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int droptest, int verbose) {
 
     int i, c;
-	int droptest = 0;
-	int verbose = 1;
 	int errors;
 	int pkt_length = SSDV_PKT_SIZE;
 	int skipped;
@@ -332,7 +341,18 @@ int ssdv_dec_file(FILE *fin, FILE *fout, ssdv_t *ssdv) {
     return 0;
 }
 
-int ssdv_enc_file(FILE *fin, FILE *fout, ssdv_t *ssdv) {
+// calls ssdv_dec_file_opts with default parameters
+int ssdv_dec_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
+    int droptest = 0;
+    int verbose = 0;
+    int result = ssdv_dec_file_opts(ssdv, fin, fout, droptest, verbose);
+    return result;
+}
+
+/* Encode a jpeg file to ssdv packets
+ * Reads data from fin, and write to fout
+ */
+int ssdv_enc_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
 
     int i, c;
 	int pkt_length = SSDV_PKT_SIZE;
