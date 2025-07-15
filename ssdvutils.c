@@ -28,21 +28,14 @@
 #include "ssdv.h"
 #include "ssdvutils.h"
 
-ssdv_mem_arena_t ssdv_read_file(FILE* f) {
-    ssdv_mem_arena_t result = {0};
-    size_t fcur = ftell(f);
-    fseek(f, 0, SEEK_END);
-    size_t fsize = ftell(f);
-    result.buf = malloc(fsize);
-    result.length = fsize;
-    fseek(f, 0, SEEK_SET);
-    fread(result.buf, result.length, 1, f);
-    result.used = fsize;
-    fseek(f, fcur, SEEK_SET);
-    return result;
-}
+typedef struct ssdv_mem_arena_t ssdv_mem_arena_t;
+struct ssdv_mem_arena_t {
+    uint8_t *buf;
+    size_t length;
+    size_t used;
+};
 
-size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, size_t read_offset, size_t pkt_length) {
+static size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, size_t read_offset, size_t pkt_length) {
     size_t src_avail = src->length - read_offset;
     size_t dest_avail = dest->length - dest->used;
     size_t copy_length = (src_avail < dest_avail)? src_avail : dest_avail;
@@ -50,13 +43,71 @@ size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, size_t 
     memcpy(dest->buf + dest->used, src->buf + read_offset, copy_length);
     dest->used += copy_length;
     return copy_length;
-
 }
 
-ssdv_mem_arena_t ssdv_dec_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
+char ssdv_enc_init_default(ssdv_t *ssdv) {
+    char result = ssdv_enc_init(ssdv, SSDV_TYPE_NORMAL, "", 0, 4, 256);
+    return result;
+}
+char ssdv_dec_init_default(ssdv_t *ssdv) {
+    char result = ssdv_dec_init(ssdv, 256);
+    return result;
+}
+
+void ssdv_print_header(uint8_t *pkt, int fd) {
+
+    ssdv_packet_info_t p;
+    ssdv_dec_header(&p, pkt);
+    fprintf(fd, "decoded image packet. callsign: \"%s\", image id: %d, resolution: %dx%d, packet id: %d \n"
+            ">> type: %d, quality: %d, eoi: %d, mcu mode: %d, mcu offset: %d, mcu id: %d/%d\n",
+            p.callsign_s,
+            p.image_id,
+            p.width,
+            p.height,
+            p.packet_id,
+            p.type,
+            p.quality,
+            p.eoi,
+            p.mcu_mode,
+            p.mcu_offset,
+            p.mcu_id,
+            p.mcu_count
+           );
+}
+void ssdv_print_header_stdout(uint8_t *pkt) {
+    ssdv_print_header(pkt, stdout);
+    return;
+}
+
+void ssdv_print_header_stderr(uint8_t *pkt) {
+    ssdv_print_header(pkt, stderr);
+    return;
+}
+
+uint8_t* ssdv_read_file(FILE* f, size_t *len_out) {
+    printf("Read file\n");
+    uint8_t* result = 0;
+    size_t fcur = ftell(f);
+    fseek(f, 0, SEEK_END);
+    size_t fsize = ftell(f);
+    result = malloc(fsize);
+    printf("Read file malloc'd\n");
+    *len_out = fsize;
+    fseek(f, 0, SEEK_SET);
+    fread(result, *len_out, 1, f);
+    fseek(f, fcur, SEEK_SET);
+    return result;
+}
+
+uint8_t* ssdv_dec_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out) {
 
     ssdv_mem_arena_t result = {0};
-    int src_good = src->buf != 0 && src->length > 0;
+    ssdv_mem_arena_t src_arena = {0};
+    src_arena.buf = src;
+    src_arena.length = len_in;
+    src_arena.used = len_in;
+
+    int src_good = src != 0 && len_in > 0;
 
     int i, c;
 	int droptest = 0;
@@ -73,8 +124,8 @@ ssdv_mem_arena_t ssdv_dec_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
     pkt_arena.length = SSDV_PKT_SIZE;
 
     if (!src_good) {
-        fprintf(stderr, "Buffer error. Src: %p %u\n", src->buf, src->length);
-        return result;
+        fprintf(stderr, "Buffer error. Src: %p %u\n", src_arena.buf, src_arena.length);
+        return 0;
     }
 
     jpeg_length = 1024 * 1024 * 4;
@@ -86,7 +137,7 @@ ssdv_mem_arena_t ssdv_dec_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
 
     size_t read_offset = 0;
     size_t bytes_read = 0;
-    while((bytes_read = ssdv_memcpy_packet(src, &pkt_arena, read_offset, pkt_length)) > 0)
+    while((bytes_read = ssdv_memcpy_packet(&src_arena, &pkt_arena, read_offset, pkt_length)) > 0)
     {
         read_offset += bytes_read;
         /* Drop % of packets */
@@ -99,7 +150,7 @@ ssdv_mem_arena_t ssdv_dec_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
             /* Read 1 byte at a time until a new packet is found */
             memmove(&pkt[0], &pkt[1], pkt_length - 1);
             pkt_arena.used -= 1;
-            if ((bytes_read = ssdv_memcpy_packet(src, &pkt_arena, read_offset, 1)) <= 0)
+            if ((bytes_read = ssdv_memcpy_packet(&src_arena, &pkt_arena, read_offset, 1)) <= 0)
             {
                 break;
             }
@@ -113,30 +164,12 @@ ssdv_mem_arena_t ssdv_dec_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
 
         if(verbose)
         {
-            ssdv_packet_info_t p;
 
             if(skipped > 0)
             {
                 fprintf(stderr, "Skipped %d bytes.\n", skipped);
             }
-
-            ssdv_dec_header(&p, pkt);
-            fprintf(stderr, "Decoded image packet. Callsign: \"%s\", Image ID: %d, Resolution: %dx%d, Packet ID: %d (%d errors corrected)\n"
-                    ">> Type: %d, Quality: %d, EOI: %d, MCU Mode: %d, MCU Offset: %d, MCU ID: %d/%d\n",
-                    p.callsign_s,
-                    p.image_id,
-                    p.width,
-                    p.height,
-                    p.packet_id,
-                    errors,
-                    p.type,
-                    p.quality,
-                    p.eoi,
-                    p.mcu_mode,
-                    p.mcu_offset,
-                    p.mcu_id,
-                    p.mcu_count
-                   );
+            ssdv_print_header_stderr(pkt);
             pkt_arena.used = 0;
         }
 
@@ -149,14 +182,20 @@ ssdv_mem_arena_t ssdv_dec_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
     result.buf = jpeg;
     result.used = jpeg_length;
     fprintf(stderr, "Read %i packets\n", i);
-    return result;
+    *len_out = result.used;
+    return result.buf;
 }
 
-ssdv_mem_arena_t ssdv_enc_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
+uint8_t* ssdv_enc_buf(uint8_t *src, size_t len_in, ssdv_t *ssdv, size_t *len_out) {
 
     ssdv_mem_arena_t result = {0};
     ssdv_mem_arena_t pkt_arena = {0};
     ssdv_mem_arena_t b_arena = {0};
+
+    ssdv_mem_arena_t src_arena = {0};
+    src_arena.buf = src;
+    src_arena.length = len_in;
+    src_arena.used = len_in;
 
     ssdv_mem_arena_t tmp = {0};
 
@@ -186,7 +225,7 @@ ssdv_mem_arena_t ssdv_enc_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
         {
             b_arena.used = 0;
             //size_t r = fread(b, 1, 128, fin);
-            size_t r = ssdv_memcpy_packet(src, &b_arena, read_offset, 128);;
+            size_t r = ssdv_memcpy_packet(&src_arena, &b_arena, read_offset, 128);;
             read_offset += r;
 
             if(r <= 0)
@@ -206,7 +245,7 @@ ssdv_mem_arena_t ssdv_enc_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
         {
             fprintf(stderr, "ssdv_enc_get_packet failed: %i\n", c);
             fprintf(stderr, "Total read: %u\n", read_offset);
-            return result;
+            return 0;
         }
         // Extend the buffer if we run out of room
         if (tmp.length - tmp.used < pkt_length) {
@@ -216,14 +255,18 @@ ssdv_mem_arena_t ssdv_enc_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv) {
             fprintf(stderr, "Had to realloc: %u pages used\n", page_count);
         }
 
-        //fwrite(pkt, 1, pkt_length, fout);
         ssdv_memcpy_packet(&pkt_arena, &tmp, 0, pkt_length);
         i++;
+    }
+    if (tmp.length != tmp.used) {
+        tmp.buf = realloc(tmp.buf, tmp.used);
+        tmp.length = tmp.used;
     }
 
     fprintf(stderr, "Wrote %i packets\n", i);
     result = tmp;
-    return result;
+    *len_out = result.used;
+    return result.buf;
 }
 
 int ssdv_dec_file(FILE *fin, FILE *fout, ssdv_t *ssdv) {
@@ -268,30 +311,12 @@ int ssdv_dec_file(FILE *fin, FILE *fout, ssdv_t *ssdv) {
 
         if(verbose)
         {
-            ssdv_packet_info_t p;
-
             if(skipped > 0)
             {
                 fprintf(stderr, "Skipped %d bytes.\n", skipped);
             }
 
-            ssdv_dec_header(&p, pkt);
-            fprintf(stderr, "Decoded image packet. Callsign: \"%s\", Image ID: %d, Resolution: %dx%d, Packet ID: %d (%d errors corrected)\n"
-                    ">> Type: %d, Quality: %d, EOI: %d, MCU Mode: %d, MCU Offset: %d, MCU ID: %d/%d\n",
-                    p.callsign_s,
-                    p.image_id,
-                    p.width,
-                    p.height,
-                    p.packet_id,
-                    errors,
-                    p.type,
-                    p.quality,
-                    p.eoi,
-                    p.mcu_mode,
-                    p.mcu_offset,
-                    p.mcu_id,
-                    p.mcu_count
-                   );
+            ssdv_print_header_stderr(pkt);
         }
 
         /* Feed it to the decoder */

@@ -27,19 +27,17 @@
 #include <string.h>
 #include "ssdv.h"
 
-typedef struct ssdv_mem_arena_t ssdv_mem_arena_t;
-struct ssdv_mem_arena_t {
-    uint8_t *buf;
-    size_t length;
-    size_t used;
-};
+char ssdv_enc_init_default(ssdv_t *ssdv);
+char ssdv_dec_init_default(ssdv_t *ssdv);
 
-ssdv_mem_arena_t ssdv_read_file(FILE* f);
+void ssdv_print_header(uint8_t *pkt, int fd);
+void ssdv_print_header_stdout(uint8_t *pkt);
+void ssdv_print_header_stderr(uint8_t *pkt);
 
-size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, size_t read_offset, size_t pkt_length);
+uint8_t* ssdv_read_file(FILE* f, size_t* lenOut);
 
-ssdv_mem_arena_t ssdv_dec_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv);
-ssdv_mem_arena_t ssdv_enc_buf(ssdv_mem_arena_t *src, ssdv_t *ssdv);
+uint8_t* ssdv_dec_buf(uint8_t *src, size_t lenIn, ssdv_t *ssdv, size_t *lenOut);
+uint8_t* ssdv_enc_buf(uint8_t *src, size_t lenIn, ssdv_t *ssdv, size_t *lenOut);
 
 int ssdv_dec_file(FILE *fin, FILE *fout, ssdv_t *ssdv);
 int ssdv_enc_file(FILE *fin, FILE *fout, ssdv_t *ssdv);

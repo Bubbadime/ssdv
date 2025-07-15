@@ -20,17 +20,16 @@ int main(int argc, char* argv[]) {
     char wb[] = "wb";
     char encode = argc > 1;
 
+    fprintf(fout, "Pre-open Fin: %p, Fout: %p\n", fin, fout);
     jpegFile = fopen("rpicam.jpg", encode? rb : wb); 
     ssdvFile = fopen("rpicam.ssdv", encode? wb : rb);	
     fin = encode? jpegFile : ssdvFile;
     fout = (!encode)? jpegFile : ssdvFile;
+    printf("Fin: %p, Fout: %p\n", fin, fout);
 
-    ssdv_mem_arena_t data = {0};
+    uint8_t *data = 0;
+    size_t dataLen;
 
-    while(1) {
-        ssdv_dec_init(&ssdv, pkt_length);
-
-    }
 	switch(encode)
 	{
 	case 0: /* Decode */
@@ -39,37 +38,34 @@ int main(int argc, char* argv[]) {
 		{
 			return(-1);
 		}
-        ssdv_mem_arena_t decoded;
-        data = ssdv_read_file(fin);
-        decoded = ssdv_dec_buf(&data, &ssdv);
-        fwrite(decoded.buf, decoded.used, 1, fout);
-        //ssdv_dec_file(fin, fout, &ssdv);
+
+#define MODE_BUF 1
+#if MODE_BUF
+        uint8_t *decoded;
+        size_t decodedLen;
+        printf("Read file next\n");
+        data = ssdv_read_file(fin, &dataLen);
+        decoded = ssdv_dec_buf(data, dataLen, &ssdv, &decodedLen);
+        fwrite(decoded, decodedLen, 1, fout);
+#else
+        ssdv_dec_file(fin, fout, &ssdv);
+#endif
 		break;
-	
 	case 1: /* Encode */
 		
 		if(ssdv_enc_init(&ssdv, type, callsign, image_id, quality, pkt_length) != SSDV_OK)
 		{
 			return(-1);
 		}
-        ssdv_mem_arena_t encoded;
-        ssdv_mem_arena_t data2 = {0};
-        data = ssdv_read_file(fin);
-        data2.buf = malloc(data.length);
-        data2.length = data.length;
-        ssdv_memcpy_packet(&data, &data2, 0, data.used);
-        encoded = ssdv_enc_buf(&data, &ssdv);
-
-        for (size_t i = 0; i < data.used; i++) {
-            printf("%hhu, %hhu\n", data.buf[i], data2.buf[i]);
-            if (data.buf[i] != data2.buf[i]) {
-                printf("NOT EQUAL!\n");
-                break;
-            }
-        }
-        printf("Pointers :%p, %p\n", data.buf, data2.buf);
-        fwrite(encoded.buf, encoded.used, 1, fout);
-        //ssdv_enc_file(fin, fout, &ssdv);		
+#if MODE_BUF
+        uint8_t *encoded;
+        size_t encodedLen;
+        data = ssdv_read_file(fin, &dataLen);
+        encoded = ssdv_enc_buf(data, dataLen, &ssdv, &encodedLen);
+        fwrite(encoded, encodedLen, 1, fout);
+#else
+        ssdv_enc_file(fin, fout, &ssdv);		
+#endif
         break;
     }
     return 0;
