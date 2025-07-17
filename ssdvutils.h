@@ -31,7 +31,7 @@ void ssdv_print_header_stderr(uint8_t *pkt);
 char ssdv_dec_init_default(ssdv_t *ssdv);
 uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbose, int droptest, size_t *len_out);
 uint8_t* ssdv_dec_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out);
-int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int droptest, int verbose);
+int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int verbose, int droptest);
 int ssdv_dec_file(ssdv_t *ssdv, FILE *fin, FILE *fout);
 
 /* Encoding */

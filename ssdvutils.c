@@ -44,18 +44,6 @@ static size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, 
     return copy_length;
 }
 
-/* Init the ssdv struct for encoding with default parameters */
-char ssdv_enc_init_default(ssdv_t *ssdv) {
-    char result = ssdv_enc_init(ssdv, SSDV_TYPE_NORMAL, "", 0, 4, 256);
-    return result;
-}
-
-/* Init the ssdv struct for decoding with default parameters */
-char ssdv_dec_init_default(ssdv_t *ssdv) {
-    char result = ssdv_dec_init(ssdv, 256);
-    return result;
-}
-
 /* Print the header decoded from pkt into fd */
 void ssdv_print_header(uint8_t *pkt, FILE* fd) {
     ssdv_packet_info_t p;
@@ -87,6 +75,12 @@ void ssdv_print_header_stdout(uint8_t *pkt) {
 void ssdv_print_header_stderr(uint8_t *pkt) {
     ssdv_print_header(pkt, stderr);
     return;
+}
+
+/* Init the ssdv struct for decoding with default parameters */
+char ssdv_dec_init_default(ssdv_t *ssdv) {
+    char result = ssdv_dec_init(ssdv, 256);
+    return result;
 }
 
 /* Decode a buffer of ssdv packets
@@ -144,7 +138,6 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
                 break;
             }
             read_offset += 1;
-
             skipped++;
         }
 
@@ -153,7 +146,6 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
 
         if(verbose)
         {
-
             if(skipped > 0)
             {
                 fprintf(stderr, "Skipped %d bytes.\n", skipped);
@@ -182,6 +174,88 @@ uint8_t* ssdv_dec_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
 	int droptest = 0;
 	int verbose = 0;
     result = ssdv_dec_buf_opts(ssdv, src, len_in, verbose, droptest, len_out);
+    return result;
+}
+
+
+/* Decode a file of ssdv packets
+ * Reads data from fin, and write to fout
+ */
+int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int verbose, int droptest) {
+
+    int i, c;
+	int errors;
+	int pkt_length = SSDV_PKT_SIZE;
+	int skipped;
+
+	uint8_t pkt[SSDV_PKT_SIZE], *jpeg;
+	size_t jpeg_length;
+
+    jpeg_length = 1024 * 1024 * 4;
+    jpeg = malloc(jpeg_length);
+    ssdv_dec_set_buffer(ssdv, jpeg, jpeg_length);
+
+    /* Save the current file position to reset it after decoding */
+    size_t fpos = ftell(fin);
+    fseek(fin, 0, SEEK_SET);
+
+    i = 0;
+    while(fread(pkt, pkt_length, 1, fin) > 0)
+    {
+        /* Drop % of packets */
+        if(droptest && (rand() / (RAND_MAX / 100) < droptest)) continue;
+
+        /* Test the packet is valid */
+        skipped = 0;
+        while((c = ssdv_dec_is_packet(pkt, pkt_length, &errors)) != 0)
+        {
+            /* Read 1 byte at a time until a new packet is found */
+            memmove(&pkt[0], &pkt[1], pkt_length - 1);
+            if(fread(&pkt[pkt_length - 1], 1, 1, fin) <= 0)
+            {
+                break;
+            }
+            skipped++;
+        }
+
+        /* No valid packet was found before EOF */
+        if(c != 0) break;
+
+        if(verbose)
+        {
+            if(skipped > 0)
+            {
+                fprintf(stderr, "Skipped %d bytes.\n", skipped);
+            }
+
+            ssdv_print_header_stderr(pkt);
+        }
+
+        /* Feed it to the decoder */
+        ssdv_dec_feed(ssdv, pkt);
+        i++;
+    }
+
+    ssdv_dec_get_jpeg(ssdv, &jpeg, &jpeg_length);
+    fwrite(jpeg, 1, jpeg_length, fout);
+    free(jpeg);
+
+    fprintf(stderr, "Read %i packets\n", i);
+    fseek(fin, fpos, SEEK_SET);
+    return 0;
+}
+
+/* calls ssdv_dec_file_opts with default parameters */
+int ssdv_dec_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
+    int droptest = 0;
+    int verbose = 0;
+    int result = ssdv_dec_file_opts(ssdv, fin, fout, droptest, verbose);
+    return result;
+}
+
+/* Init the ssdv struct for encoding with default parameters */
+char ssdv_enc_init_default(ssdv_t *ssdv) {
+    char result = ssdv_enc_init(ssdv, SSDV_TYPE_NORMAL, "", 0, 4, 256);
     return result;
 }
 
@@ -216,7 +290,6 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
     b_arena.buf = b;
     b_arena.length = 128;
 
-
     ssdv_enc_set_buffer(ssdv, pkt);
 
     i = 0;
@@ -233,7 +306,7 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
 
             if(r <= 0)
             {
-                fprintf(stderr, "Premature end of buffer: %u\n", read_offset);
+                fprintf(stderr, "Premature end of buffer: %zu\n", read_offset);
                 break;
             }
             ssdv_enc_feed(ssdv, b, r);
@@ -247,7 +320,7 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
         else if(c != SSDV_OK)
         {
             fprintf(stderr, "ssdv_enc_get_packet failed: %i\n", c);
-            fprintf(stderr, "Total read: %u\n", read_offset);
+            fprintf(stderr, "Total read: %zu\n", read_offset);
             return 0;
         }
         /* Extend the buffer if we run out of room */
@@ -271,79 +344,6 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
     *len_out = result.used;
     return result.buf;
 }
-
-/* Decode a file of ssdv packets
- * Reads data from fin, and write to fout
- */
-int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int droptest, int verbose) {
-
-    int i, c;
-	int errors;
-	int pkt_length = SSDV_PKT_SIZE;
-	int skipped;
-
-	uint8_t pkt[SSDV_PKT_SIZE], *jpeg;
-	size_t jpeg_length;
-
-    jpeg_length = 1024 * 1024 * 4;
-    jpeg = malloc(jpeg_length);
-    ssdv_dec_set_buffer(ssdv, jpeg, jpeg_length);
-
-    i = 0;
-    while(fread(pkt, pkt_length, 1, fin) > 0)
-    {
-        /* Drop % of packets */
-        if(droptest && (rand() / (RAND_MAX / 100) < droptest)) continue;
-
-        /* Test the packet is valid */
-        skipped = 0;
-        while((c = ssdv_dec_is_packet(pkt, pkt_length, &errors)) != 0)
-        {
-            /* Read 1 byte at a time until a new packet is found */
-            memmove(&pkt[0], &pkt[1], pkt_length - 1);
-
-            if(fread(&pkt[pkt_length - 1], 1, 1, fin) <= 0)
-            {
-                break;
-            }
-
-            skipped++;
-        }
-
-        /* No valid packet was found before EOF */
-        if(c != 0) break;
-
-        if(verbose)
-        {
-            if(skipped > 0)
-            {
-                fprintf(stderr, "Skipped %d bytes.\n", skipped);
-            }
-
-            ssdv_print_header_stderr(pkt);
-        }
-
-        /* Feed it to the decoder */
-        ssdv_dec_feed(ssdv, pkt);
-        i++;
-    }
-
-    ssdv_dec_get_jpeg(ssdv, &jpeg, &jpeg_length);
-    fwrite(jpeg, 1, jpeg_length, fout);
-    free(jpeg);
-
-    fprintf(stderr, "Read %i packets\n", i);
-    return 0;
-}
-
-/* calls ssdv_dec_file_opts with default parameters */
-int ssdv_dec_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
-    int droptest = 0;
-    int verbose = 0;
-    int result = ssdv_dec_file_opts(ssdv, fin, fout, droptest, verbose);
-    return result;
-}
-
 /* Encode a jpeg file to ssdv packets
  * Reads data from fin, and write to fout
  */
@@ -354,6 +354,10 @@ int ssdv_enc_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
 	uint8_t pkt[SSDV_PKT_SIZE], b[128];
 
     ssdv_enc_set_buffer(ssdv, pkt);
+
+    /* Save the current file position to reset it after encoding */
+    size_t fpos = ftell(fin);
+    fseek(fin, 0, SEEK_SET);
 
     i = 0;
 
@@ -387,7 +391,7 @@ int ssdv_enc_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
     }
 
     fprintf(stderr, "Wrote %i packets\n", i);
+    fseek(fin, fpos, SEEK_SET);
     return 0;
-
 }
 
