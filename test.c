@@ -40,68 +40,60 @@ uint8_t* ssdv_read_file(FILE* f, size_t *len_out) {
 }
 
 int main(int argc, char* argv[]) {
-	FILE *fin = stdin;
-	FILE *fout = stdout;
-	char type = SSDV_TYPE_NORMAL;
-	int verbose = 1;
-	char callsign[7];
+    FILE *encIn, *encOut;
+    FILE *decIn, *decOut, *decOutOpts;
+    FILE *printOut;
 	uint8_t image_id = 0;
 	int8_t quality = 4;
 	int pkt_length = SSDV_PKT_SIZE;
 	ssdv_t ssdv;
-    FILE *ssdvFile, *jpegFile;
 
+    encIn = fopen("in.jpeg", "rb");
+    encOut = fopen("out.ssdv", "wb");
 
-    char rb[] = "rb";
-    char wb[] = "wb";
-    char encode = argc > 1;
+    decIn = fopen("in.ssdv", "rb");
+    decOut = fopen("out.jpeg", "wb");
+    decOutOpts = fopen("out_opts.jpeg", "wb");
 
-    jpegFile = fopen("test.jpg", encode? rb : wb); 
-    ssdvFile = fopen("test.ssdv", encode? wb : rb);	
-    fin = encode? jpegFile : ssdvFile;
-    fout = (!encode)? jpegFile : ssdvFile;
+    printOut = fopen("print.txt", "w");
 
-    uint8_t *data = 0;
-    size_t dataLen;
+    uint8_t *encBufIn, *encBufOut;
+    uint8_t *decBufIn, *decBufOut, *decBufOutOpts;
 
-	switch(encode)
-	{
-	case 0: /* Decode */
-		
-		if(ssdv_dec_init(&ssdv, pkt_length) != SSDV_OK)
-		{
-			return(-1);
-		}
+    size_t encLenIn, encLenOut, encLenOutOpts;
+    size_t decLenIn, decLenOut, decLenOutOpts;
 
-#define MODE_BUF 1
-#if MODE_BUF
-        uint8_t *decoded;
-        size_t decodedLen;
-        printf("Read file next\n");
-        data = ssdv_read_file(fin, &dataLen);
-        decoded = ssdv_dec_buf(&ssdv, data, dataLen, &decodedLen);
-        fwrite(decoded, decodedLen, 1, fout);
-#else
-        ssdv_dec_file(&ssdv, fin, fout);
-#endif
-		break;
-	case 1: /* Encode */
-		
-		if(ssdv_enc_init_default(&ssdv) != SSDV_OK)
-		{
-			return(-1);
-		}
-#if MODE_BUF
-        uint8_t *encoded;
-        size_t encodedLen;
-        data = ssdv_read_file(fin, &dataLen);
-        encoded = ssdv_enc_buf(&ssdv, data, dataLen, &encodedLen);
-        fwrite(encoded, encodedLen, 1, fout);
-#else
-        ssdv_enc_file(&ssdv, fin, fout);		
-#endif
-        break;
-    }
+    encBufIn = ssdv_read_file(encIn, &encLenIn);
+    decBufIn = ssdv_read_file(decIn, &decLenIn);
+
+    /* Decoding */
+    ssdv_dec_init_default(&ssdv);
+    ssdv_dec_file(&ssdv, decIn, decOut);
+    fclose(decOut);
+
+    ssdv_dec_init_default(&ssdv);
+    ssdv_dec_file_opts(&ssdv, decIn, decOutOpts, 1, 0);
+    fclose(decOutOpts);
+
+    ssdv_dec_init_default(&ssdv);
+    decBufOut = ssdv_dec_buf(&ssdv, decBufIn, decLenIn, &decLenOut);
+
+    ssdv_dec_init_default(&ssdv);
+    decBufOutOpts = ssdv_dec_buf_opts(&ssdv, decBufIn, decLenIn, 1, 0, &decLenOutOpts);
+
+/* Encoding */
+    ssdv_enc_init_default(&ssdv);
+    ssdv_enc_file(&ssdv, encIn, encOut);
+    fclose(encOut);
+
+    ssdv_enc_init_default(&ssdv);
+    encBufOut = ssdv_enc_buf(&ssdv, encBufIn, encLenIn, &encLenOut);
+
+/* Printing */
+    ssdv_print_header(decBufOut, printOut);
+    ssdv_print_header_stdout(decBufOut);
+    ssdv_print_header_stderr(decBufOut);
+
     return 0;
 }
 
