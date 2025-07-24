@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS=-g -O3 -Wall
 LDFLAGS=-g
 
-all: ssdv libssdv.so test
+all: ssdv libssdv.so
 
 ssdv: main.o ssdv.o rs8.o ssdv.h rs8.h
 	$(CC) $(LDFLAGS) main.o ssdv.o rs8.o -o ssdv

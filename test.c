@@ -90,9 +90,9 @@ int main(int argc, char* argv[]) {
     encBufOut = ssdv_enc_buf(&ssdv, encBufIn, encLenIn, &encLenOut);
 
 /* Printing */
-    ssdv_print_header(decBufOut, printOut);
-    ssdv_print_header_stdout(decBufOut);
-    ssdv_print_header_stderr(decBufOut);
+    ssdv_fprint_header(decBufOut, printOut);
+    ssdv_print_header(decBufOut);
+    ssdv_perror_header(decBufOut);
 
     return 0;
 }

@@ -67,13 +67,13 @@ void ssdv_fprint_header(uint8_t *pkt, FILE* fd) {
 
 /* Print the header decoded from pkt to stdout */
 void ssdv_print_header(uint8_t *pkt) {
-    ssdv_print_header(pkt, stdout);
+    ssdv_fprint_header(pkt, stdout);
     return;
 }
 
 /* Print the header decoded from pkt to stderr */
 void ssdv_perror_header(uint8_t *pkt) {
-    ssdv_print_header(pkt, stderr);
+    ssdv_fprint_header(pkt, stderr);
     return;
 }
 
@@ -150,7 +150,7 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
             {
                 fprintf(stderr, "Skipped %d bytes.\n", skipped);
             }
-            ssdv_print_header_stderr(pkt);
+            ssdv_perror_header(pkt);
             pkt_arena.used = 0;
         }
 
@@ -228,7 +228,7 @@ int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int verbose, int dro
                 fprintf(stderr, "Skipped %d bytes.\n", skipped);
             }
 
-            ssdv_print_header_stderr(pkt);
+            ssdv_perror_header(pkt);
         }
 
         /* Feed it to the decoder */
