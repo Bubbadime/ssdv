@@ -45,7 +45,7 @@ static size_t ssdv_memcpy_packet(ssdv_mem_arena_t *src, ssdv_mem_arena_t *dest, 
 }
 
 /* Print the header decoded from pkt into fd */
-void ssdv_print_header(uint8_t *pkt, FILE* fd) {
+void ssdv_fprint_header(uint8_t *pkt, FILE* fd) {
     ssdv_packet_info_t p;
     ssdv_dec_header(&p, pkt);
     fprintf(fd, "decoded image packet. callsign: \"%s\", image id: %d, resolution: %dx%d, packet id: %d \n"
@@ -66,13 +66,13 @@ void ssdv_print_header(uint8_t *pkt, FILE* fd) {
 }
 
 /* Print the header decoded from pkt to stdout */
-void ssdv_print_header_stdout(uint8_t *pkt) {
+void ssdv_print_header(uint8_t *pkt) {
     ssdv_print_header(pkt, stdout);
     return;
 }
 
 /* Print the header decoded from pkt to stderr */
-void ssdv_print_header_stderr(uint8_t *pkt) {
+void ssdv_perror_header(uint8_t *pkt) {
     ssdv_print_header(pkt, stderr);
     return;
 }

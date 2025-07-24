@@ -23,9 +23,9 @@
 #include "ssdv.h"
 
 /* Printing */
-void ssdv_print_header(uint8_t *pkt, FILE* fd);
-void ssdv_print_header_stdout(uint8_t *pkt);
-void ssdv_print_header_stderr(uint8_t *pkt);
+void ssdv_fprint_header(uint8_t *pkt, FILE* fd);
+void ssdv_print_header(uint8_t *pkt);
+void ssdv_perror_header(uint8_t *pkt);
 
 /* Decoding */
 char ssdv_dec_init_default(ssdv_t *ssdv);
