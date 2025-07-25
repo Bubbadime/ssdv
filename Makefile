@@ -11,9 +11,6 @@ ssdv: main.o ssdv.o rs8.o ssdv.h rs8.h
 libssdv.so: ssdvutils.lo ssdv.lo rs8.lo ssdv.h rs8.h
 	$(CC) -shared $(LDFLAGS) ssdvutils.lo ssdv.lo rs8.lo -o libssdv.so
 
-test: test.c libssdv.so
-	$(CC) $(LDFLAGS) test.c -l:libssdv.so -o test
-
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@
 
