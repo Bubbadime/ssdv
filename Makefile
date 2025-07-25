@@ -27,5 +27,5 @@ install: all
 	install -m 644 rs8.h ${DESTDIR}/usr/include/ssdv
 
 clean:
-	rm -f *.o *.lo ssdv libssdv.so test
+	rm -f *.o *.lo ssdv libssdv.so
 

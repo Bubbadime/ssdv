@@ -675,8 +675,8 @@ static char ssdv_have_marker(ssdv_t *s)
 		/* Copy the data before processing */
 		if(s->marker_len > TBL_LEN + HBUFF_LEN - s->stbl_len)
 		{
-            fprintf(stderr, "SSDV out of memory - marker len = %hu\n", s->marker_len);
 			/* Not enough memory ... shouldn't happen! */
+            fprintf(stderr, "Error: Not enough memory\n");
 			return(SSDV_ERROR);
 		}
 		
