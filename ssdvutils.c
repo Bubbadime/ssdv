@@ -97,7 +97,6 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
 
     int i, c;
 	int errors;
-	int pkt_length = SSDV_PKT_SIZE;
 	int skipped;
 
 	uint8_t pkt[SSDV_PKT_SIZE], *jpeg;
@@ -120,7 +119,7 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
     i = 0;
     size_t read_offset = 0;
     size_t bytes_read = 0;
-    while((bytes_read = ssdv_memcpy_packet(&src_arena, &pkt_arena, read_offset, pkt_length)) > 0)
+    while((bytes_read = ssdv_memcpy_packet(&src_arena, &pkt_arena, read_offset, ssdv->pkt_size)) > 0)
     {
         read_offset += bytes_read;
         /* Drop % of packets */
@@ -128,10 +127,10 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
 
         /* Test the packet is valid */
         skipped = 0;
-        while((c = ssdv_dec_is_packet(pkt, pkt_length, &errors)) != 0)
+        while((c = ssdv_dec_is_packet(pkt, ssdv->pkt_size, &errors)) != 0)
         {
             /* Read 1 byte at a time until a new packet is found */
-            memmove(&pkt[0], &pkt[1], pkt_length - 1);
+            memmove(&pkt[0], &pkt[1], ssdv->pkt_size - 1);
             pkt_arena.used -= 1;
             if ((bytes_read = ssdv_memcpy_packet(&src_arena, &pkt_arena, read_offset, 1)) <= 0)
             {
@@ -185,7 +184,6 @@ int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int verbose, int dro
 
     int i, c;
 	int errors;
-	int pkt_length = SSDV_PKT_SIZE;
 	int skipped;
 
 	uint8_t pkt[SSDV_PKT_SIZE], *jpeg;
@@ -200,18 +198,18 @@ int ssdv_dec_file_opts(ssdv_t *ssdv, FILE *fin, FILE *fout, int verbose, int dro
     fseek(fin, 0, SEEK_SET);
 
     i = 0;
-    while(fread(pkt, pkt_length, 1, fin) > 0)
+    while(fread(pkt, ssdv->pkt_size, 1, fin) > 0)
     {
         /* Drop % of packets */
         if(droptest && (rand() / (RAND_MAX / 100) < droptest)) continue;
 
         /* Test the packet is valid */
         skipped = 0;
-        while((c = ssdv_dec_is_packet(pkt, pkt_length, &errors)) != 0)
+        while((c = ssdv_dec_is_packet(pkt, ssdv->pkt_size, &errors)) != 0)
         {
             /* Read 1 byte at a time until a new packet is found */
-            memmove(&pkt[0], &pkt[1], pkt_length - 1);
-            if(fread(&pkt[pkt_length - 1], 1, 1, fin) <= 0)
+            memmove(&pkt[0], &pkt[1], ssdv->pkt_size - 1);
+            if(fread(&pkt[ssdv->pkt_size - 1], 1, 1, fin) <= 0)
             {
                 break;
             }
@@ -283,10 +281,9 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
     tmp.length = alloc_size;
 
     int i, c;
-	int pkt_length = SSDV_PKT_SIZE;
 	uint8_t pkt[SSDV_PKT_SIZE], b[128];
     pkt_arena.buf = pkt;
-    pkt_arena.length = pkt_length;
+    pkt_arena.length = ssdv->pkt_size;
     b_arena.buf = b;
     b_arena.length = 128;
 
@@ -324,14 +321,14 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
             return 0;
         }
         /* Extend the buffer if we run out of room */
-        if (tmp.length - tmp.used < pkt_length) {
+        if (tmp.length - tmp.used < ssdv->pkt_size) {
             alloc_count *= 2;
             tmp.buf = realloc(tmp.buf, alloc_count * alloc_size);
             tmp.length = alloc_count * alloc_size;
             fprintf(stderr, "Had to realloc: %zu bytes used\n", alloc_count * alloc_size);
         }
 
-        ssdv_memcpy_packet(&pkt_arena, &tmp, 0, pkt_length);
+        ssdv_memcpy_packet(&pkt_arena, &tmp, 0, ssdv->pkt_size);
         i++;
     }
     if (tmp.length != tmp.used) {
@@ -350,7 +347,6 @@ uint8_t* ssdv_enc_buf(ssdv_t *ssdv, uint8_t *src, size_t len_in, size_t *len_out
 int ssdv_enc_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
 
     int i, c;
-	int pkt_length = SSDV_PKT_SIZE;
 	uint8_t pkt[SSDV_PKT_SIZE], b[128];
 
     ssdv_enc_set_buffer(ssdv, pkt);
@@ -386,7 +382,7 @@ int ssdv_enc_file(ssdv_t *ssdv, FILE *fin, FILE *fout) {
             return(-1);
         }
 
-        fwrite(pkt, 1, pkt_length, fout);
+        fwrite(pkt, 1, ssdv->pkt_size, fout);
         i++;
     }
 
