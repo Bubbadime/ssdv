@@ -150,8 +150,8 @@ uint8_t* ssdv_dec_buf_opts(ssdv_t *ssdv, uint8_t *src, size_t len_in, int verbos
                 fprintf(stderr, "Skipped %d bytes.\n", skipped);
             }
             ssdv_perror_header(pkt);
-            pkt_arena.used = 0;
         }
+        pkt_arena.used = 0;
 
         /* Feed it to the decoder */
         ssdv_dec_feed(ssdv, pkt);
